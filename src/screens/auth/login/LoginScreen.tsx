@@ -2,24 +2,26 @@
 
 import Link from "next/link";
 import { FormEvent, useState } from "react";
+import { useRouter } from "next/navigation";
+import { AuthService } from "@/api_service/auth";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
 
-    // Simulate login API call
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      // Handle login logic here
-    } catch (err) {
-      setError("Invalid email or password");
+      await AuthService.login(email, password);
+      router.push("/dashboard");
+    } catch (err: any) {
+      setError(err.message || "Invalid email or password");
     } finally {
       setIsLoading(false);
     }
