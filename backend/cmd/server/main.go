@@ -23,13 +23,16 @@ func main() {
 	userRepo := repository.NewUserRepository(database)
 	codeRepo := repository.NewLoginCodeRepository(database)
 	sessionRepo := repository.NewSessionRepository(database)
+	dashboardRepo := repository.NewDashboardRepository(database)
 
 	// Services
 	tokenSvc := service.NewTokenService(cfg.JWTSecret)
 	authSvc := service.NewAuthService(userRepo, codeRepo, sessionRepo, tokenSvc)
+	dashboardSvc := service.NewDashboardService(dashboardRepo)
 
 	// Handlers
 	authHandler := handlers.NewAuthHandler(authSvc)
+	dashboardHandler := handlers.NewDashboardHandler(dashboardSvc)
 
 	// Router
 	r := gin.Default()
@@ -42,8 +45,8 @@ func main() {
 		authGroup.POST("/refresh-token", authHandler.RefreshToken)
 	}
 
-	// Protected example
-	protected := api.Group("/protected")
+	// Protected routes
+	protected := api.Group("/")
 	protected.Use(middleware.AuthMiddleware(tokenSvc))
 	{
 		protected.GET("/me", func(c *gin.Context) {
@@ -52,6 +55,7 @@ func main() {
 				"email":  c.GetString("email"),
 			})
 		})
+		protected.GET("/dashboard", dashboardHandler.GetDashboard)
 	}
 
 	log.Printf("Server starting on :%s", cfg.ServerPort)
