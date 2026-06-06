@@ -2,6 +2,8 @@ package main
 
 import (
 	"log"
+	"os"
+	"strconv"
 
 	config "github.com/madhavbhayani/VendorBridge-Procurement-Vendor-Management-ERP/configs"
 	"github.com/madhavbhayani/VendorBridge-Procurement-Vendor-Management-ERP/internal/handlers"
@@ -25,6 +27,7 @@ func main() {
 	sessionRepo := repository.NewSessionRepository(database)
 	dashboardRepo := repository.NewDashboardRepository(database)
 	vendorRepo := repository.NewVendorRepository(database)
+	rfqRepo := repository.NewRFQRepository(database)
 
 	// Services
 	tokenSvc := service.NewTokenService(cfg.JWTSecret)
@@ -32,13 +35,30 @@ func main() {
 	dashboardSvc := service.NewDashboardService(dashboardRepo)
 	vendorSvc := service.NewVendorService(vendorRepo)
 
+	// Initialize Email Service (using env variables)
+	smtpHost := os.Getenv("SMTP_HOST")
+	smtpPortStr := os.Getenv("SMTP_PORT")
+	smtpUser := os.Getenv("SMTP_USER")
+	smtpPass := os.Getenv("SMTP_PASS")
+	smtpFrom := os.Getenv("SMTP_FROM")
+	smtpPort, _ := strconv.Atoi(smtpPortStr)
+	emailSvc := service.NewEmailService(smtpHost, smtpPort, smtpUser, smtpPass, smtpFrom)
+	rfqSvc := service.NewRFQService(rfqRepo)
+	quotationRepo := repository.NewQuotationRepository(database)
+	quotationSvc := service.NewQuotationService(quotationRepo, rfqRepo, vendorRepo)
+
 	// Handlers
-	authHandler := handlers.NewAuthHandler(authSvc)
+	authHandler := handlers.NewAuthHandler(authSvc, emailSvc)
 	dashboardHandler := handlers.NewDashboardHandler(dashboardSvc)
 	vendorHandler := handlers.NewVendorHandler(vendorSvc)
+	rfqHandler := handlers.NewRFQHandler(rfqSvc)
+	quotationHandler := handlers.NewQuotationHandler(quotationSvc)
 
 	// Router
 	r := gin.Default()
+
+	// Serve static files from the uploads directory
+	r.Static("/uploads", "./uploads")
 
 	api := r.Group("/api")
 	authGroup := api.Group("/auth")
@@ -46,6 +66,7 @@ func main() {
 		authGroup.POST("/login", authHandler.Login)
 		authGroup.POST("/assign-token", authHandler.AssignToken)
 		authGroup.POST("/refresh-token", authHandler.RefreshToken)
+		authGroup.POST("/signin", authHandler.VendorSignUp)
 	}
 
 	// Protected routes
@@ -59,6 +80,14 @@ func main() {
 			})
 		})
 		protected.GET("/dashboard", dashboardHandler.GetDashboard)
+
+		// Locations
+		locationRepo := repository.NewLocationRepository(database)
+		locationSvc := service.NewLocationService(locationRepo)
+		locationHandler := handlers.NewLocationHandler(locationSvc)
+
+		protected.GET("/countries", locationHandler.GetCountries)
+		protected.GET("/countries/:country_id/states", locationHandler.GetStates)
 
 		// Vendor management (all roles procurement_officer or admin)
 		vendorGroup := protected.Group("/vendors")
@@ -74,6 +103,33 @@ func main() {
 
 		// Public categories (no extra role, but still authenticated)
 		protected.GET("/vendor-categories", vendorHandler.GetVendorCategories)
+
+		protected.GET("/tax-rates", quotationHandler.GetTaxRates)
+
+		// Vendor specifically
+		vendorMeGroup := protected.Group("/vendor")
+		vendorMeGroup.Use(middleware.RequireRole("vendor"))
+		{
+			vendorMeGroup.GET("/invitations", quotationHandler.GetVendorInvitations)
+			vendorMeGroup.GET("/rfqs/:id", quotationHandler.GetVendorRFQ)
+		}
+
+		quotationGroup := protected.Group("/quotations")
+		quotationGroup.Use(middleware.RequireRole("vendor"))
+		{
+			quotationGroup.POST("", quotationHandler.CreateQuotation)
+		}
+
+		// RFQ management (all roles procurement_officer or admin)
+		rfqGroup := protected.Group("/rfqs")
+		rfqGroup.Use(middleware.RequireRole("admin", "procurement_officer"))
+		{
+			rfqGroup.POST("", rfqHandler.CreateRFQ)
+			rfqGroup.GET("/search", rfqHandler.SearchRFQs)
+			rfqGroup.GET("/:id", rfqHandler.GetRFQ)
+			rfqGroup.PUT("/:id", rfqHandler.UpdateRFQ)
+			rfqGroup.DELETE("/:id", rfqHandler.DeleteRFQ)
+		}
 	}
 
 	log.Printf("Server starting on :%s", cfg.ServerPort)

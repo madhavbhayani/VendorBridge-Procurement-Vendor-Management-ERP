@@ -110,43 +110,74 @@ func (s *VendorService) GetVendorDetail(ctx context.Context, id int64) (*VendorD
 	}, nil
 }
 
+func parseStringPtr(v interface{}) *string {
+	if v == nil {
+		return nil
+	}
+	if str, ok := v.(string); ok {
+		if str == "" {
+			return nil
+		}
+		return &str
+	}
+	return nil
+}
+
+func parseFloatPtr(v interface{}) *float64 {
+	if v == nil {
+		return nil
+	}
+	if f, ok := v.(float64); ok {
+		return &f
+	}
+	return nil
+}
+
 func (s *VendorService) UpdateVendor(ctx context.Context, id int64, updates map[string]interface{}, categoryIDs []int64, addresses []models.VendorAddress, bankDetails []models.VendorBankDetail) error {
 	// First update basic vendor fields
 	if len(updates) > 0 {
 		vendor := &models.Vendor{ID: id}
 		// Map fields (simplified, you can expand)
-		if v, ok := updates["company_name"]; ok {
-			vendor.CompanyName = v.(string)
+		if v, ok := updates["company_name"]; ok && v != nil {
+			if str, ok := v.(string); ok {
+				vendor.CompanyName = str
+			}
 		}
 		if v, ok := updates["trade_name"]; ok {
-			vendor.TradeName = v.(*string)
+			vendor.TradeName = parseStringPtr(v)
 		}
 		if v, ok := updates["gst_number"]; ok {
-			vendor.GSTNumber = v.(*string)
+			vendor.GSTNumber = parseStringPtr(v)
 		}
 		if v, ok := updates["pan_number"]; ok {
-			vendor.PANNumber = v.(*string)
+			vendor.PANNumber = parseStringPtr(v)
 		}
-		if v, ok := updates["email"]; ok {
-			vendor.Email = v.(string)
+		if v, ok := updates["email"]; ok && v != nil {
+			if str, ok := v.(string); ok {
+				vendor.Email = str
+			}
 		}
-		if v, ok := updates["phone"]; ok {
-			vendor.Phone = v.(string)
+		if v, ok := updates["phone"]; ok && v != nil {
+			if str, ok := v.(string); ok {
+				vendor.Phone = str
+			}
 		}
 		if v, ok := updates["alternate_phone"]; ok {
-			vendor.AlternatePhone = v.(*string)
+			vendor.AlternatePhone = parseStringPtr(v)
 		}
 		if v, ok := updates["website"]; ok {
-			vendor.Website = v.(*string)
+			vendor.Website = parseStringPtr(v)
 		}
-		if v, ok := updates["status"]; ok {
-			vendor.Status = v.(string)
+		if v, ok := updates["status"]; ok && v != nil {
+			if str, ok := v.(string); ok {
+				vendor.Status = str
+			}
 		}
 		if v, ok := updates["rating"]; ok {
-			vendor.Rating = v.(*float64)
+			vendor.Rating = parseFloatPtr(v)
 		}
 		if v, ok := updates["notes"]; ok {
-			vendor.Notes = v.(*string)
+			vendor.Notes = parseStringPtr(v)
 		}
 		if err := s.vendorRepo.Update(ctx, vendor); err != nil {
 			return err

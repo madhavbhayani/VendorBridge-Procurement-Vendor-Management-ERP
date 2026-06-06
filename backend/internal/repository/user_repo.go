@@ -9,6 +9,9 @@ import (
 )
 
 type UserRepository interface {
+	CreateVendorUser(ctx context.Context, tx *sql.Tx, email, fullName string) (int64, error)
+	SetPassword(ctx context.Context, userID int64, hashedPassword string) error
+
 	GetByEmail(ctx context.Context, email string) (*models.User, error)
 	GetByID(ctx context.Context, id int64) (*models.User, error)
 	UpdateLastLogin(ctx context.Context, userID int64) error
@@ -61,5 +64,27 @@ func (r *userRepo) GetByID(ctx context.Context, id int64) (*models.User, error) 
 
 func (r *userRepo) UpdateLastLogin(ctx context.Context, userID int64) error {
 	_, err := r.db.ExecContext(ctx, "UPDATE users SET last_login_at = NOW() WHERE id = $1", userID)
+	return err
+}
+
+func (r *userRepo) CreateVendorUser(ctx context.Context, tx *sql.Tx, email, fullName string) (int64, error) {
+	query := `
+		INSERT INTO users (email, password_hash, full_name, role, status)
+		VALUES ($1, 'PENDING_SETUP', $2, 'vendor', 'active')
+		RETURNING id
+	`
+	var id int64
+	var err error
+	if tx != nil {
+		err = tx.QueryRowContext(ctx, query, email, fullName).Scan(&id)
+	} else {
+		err = r.db.QueryRowContext(ctx, query, email, fullName).Scan(&id)
+	}
+	return id, err
+}
+
+func (r *userRepo) SetPassword(ctx context.Context, userID int64, hashedPassword string) error {
+	query := "UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2"
+	_, err := r.db.ExecContext(ctx, query, hashedPassword, userID)
 	return err
 }

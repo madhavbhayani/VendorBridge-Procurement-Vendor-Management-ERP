@@ -16,6 +16,7 @@ type VendorRepository interface {
 	AddBankDetail(ctx context.Context, bank *models.VendorBankDetail) error
 	Search(ctx context.Context, search string, categoryID *int64, status *string, limit, offset int) ([]models.Vendor, int, error)
 	List(ctx context.Context, limit, offset int) ([]models.Vendor, int, error)
+	GetByUserID(ctx context.Context, userID int64) (*models.Vendor, error)
 	GetByID(ctx context.Context, id int64) (*models.Vendor, error)
 	GetCategoriesByVendor(ctx context.Context, vendorID int64) ([]models.VendorCategory, error)
 	GetAddressesByVendor(ctx context.Context, vendorID int64) ([]models.VendorAddress, error)
@@ -40,15 +41,15 @@ func NewVendorRepository(db *sql.DB) VendorRepository {
 func (r *vendorRepo) Create(ctx context.Context, vendor *models.Vendor) (int64, error) {
 	query := `
         INSERT INTO vendors (company_name, trade_name, gst_number, pan_number, email, phone,
-                             alternate_phone, website, status, notes, created_by)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                             alternate_phone, website, status, notes, user_id, created_by)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         RETURNING id
     `
 	var id int64
 	err := r.db.QueryRowContext(ctx, query,
 		vendor.CompanyName, vendor.TradeName, vendor.GSTNumber, vendor.PANNumber,
 		vendor.Email, vendor.Phone, vendor.AlternatePhone, vendor.Website,
-		vendor.Status, vendor.Notes, vendor.CreatedBy,
+		vendor.Status, vendor.Notes, vendor.UserID, vendor.CreatedBy,
 	).Scan(&id)
 	return id, err
 }
@@ -313,4 +314,27 @@ func (r *vendorRepo) GetAllCategories(ctx context.Context) ([]models.VendorCateg
 func (r *vendorRepo) Delete(ctx context.Context, id int64) error {
 	_, err := r.db.ExecContext(ctx, "DELETE FROM vendors WHERE id = $1", id)
 	return err
+}
+
+func (r *vendorRepo) GetByUserID(ctx context.Context, userID int64) (*models.Vendor, error) {
+	query := `
+		SELECT id, user_id, company_name, trade_name, gst_number, pan_number, email, phone, alternate_phone, website,
+		       status, rating, notes, created_by, created_at, updated_at
+		FROM vendors
+		WHERE user_id = $1
+	`
+	var v models.Vendor
+	err := r.db.QueryRowContext(ctx, query, userID).Scan(
+		&v.ID, &v.UserID, &v.CompanyName, &v.TradeName, &v.GSTNumber, &v.PANNumber,
+		&v.Email, &v.Phone, &v.AlternatePhone, &v.Website,
+		&v.Status, &v.Rating, &v.Notes, &v.CreatedBy,
+		&v.CreatedAt, &v.UpdatedAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &v, nil
 }

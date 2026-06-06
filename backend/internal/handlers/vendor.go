@@ -1,8 +1,9 @@
 package handlers
 
 import (
-    "net/http"
-    "strconv"
+	"encoding/json"
+	"net/http"
+	"strconv"
 
     "github.com/gin-gonic/gin"
     "github.com/madhavbhayani/VendorBridge-Procurement-Vendor-Management-ERP/internal/models"
@@ -154,28 +155,30 @@ func (h *VendorHandler) UpdateVendor(c *gin.Context) {
         return
     }
 
-    // Extract categories, addresses, bank details from body if present
-    var categoryIDs []int64
-    if cats, ok := body["category_ids"].([]interface{}); ok {
-        for _, cat := range cats {
-            if f, ok := cat.(float64); ok {
-                categoryIDs = append(categoryIDs, int64(f))
-            }
-        }
-        delete(body, "category_ids")
-    }
-    var addresses []models.VendorAddress
-    if addrs, ok := body["addresses"].([]interface{}); ok {
-        _ = addrs
-        // TODO: unmarshal properly, for brevity we skip full implementation
-        // In production, use a separate struct or mapstructure
-        delete(body, "addresses")
-    }
-    var bankDetails []models.VendorBankDetail
-    if banks, ok := body["bank_details"].([]interface{}); ok {
-        _ = banks
-        delete(body, "bank_details")
-    }
+	// Extract categories, addresses, bank details from body if present
+	var categoryIDs []int64
+	if cats, ok := body["category_ids"].([]interface{}); ok {
+		for _, cat := range cats {
+			if f, ok := cat.(float64); ok {
+				categoryIDs = append(categoryIDs, int64(f))
+			}
+		}
+		delete(body, "category_ids")
+	}
+
+	var addresses []models.VendorAddress
+	if addrs, ok := body["addresses"]; ok {
+		importJson, _ := json.Marshal(addrs)
+		json.Unmarshal(importJson, &addresses)
+		delete(body, "addresses")
+	}
+
+	var bankDetails []models.VendorBankDetail
+	if banks, ok := body["bank_details"]; ok {
+		importJson, _ := json.Marshal(banks)
+		json.Unmarshal(importJson, &bankDetails)
+		delete(body, "bank_details")
+	}
 
     // Update
     if err := h.vendorSvc.UpdateVendor(c.Request.Context(), id, body, categoryIDs, addresses, bankDetails); err != nil {

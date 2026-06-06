@@ -144,3 +144,8 @@ func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (st
     // Optionally rotate refresh token here (not implemented for brevity)
     return newAccessToken, nil
 }
+
+// CreateVendorUser creates a vendor user with pending password.
+func (s *AuthService) CreateVendorUser(ctx context.Context, email, companyName string) (int64, error) {
+    return s.userRepo.CreateVendorUser(ctx, nil, email, companyName)
+}
