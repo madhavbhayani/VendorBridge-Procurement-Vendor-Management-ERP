@@ -1,0 +1,1 @@
+-- Existing schema + new table
