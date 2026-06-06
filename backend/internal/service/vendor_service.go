@@ -3,46 +3,66 @@ package service
 import (
 	"context"
 	"errors"
+	"log"
+
 	"github.com/madhavbhayani/VendorBridge-Procurement-Vendor-Management-ERP/internal/models"
 	"github.com/madhavbhayani/VendorBridge-Procurement-Vendor-Management-ERP/internal/repository"
 )
 
 type VendorService struct {
 	vendorRepo repository.VendorRepository
+	userRepo   repository.UserRepository
+	emailSvc   *EmailService
 }
 
-func NewVendorService(vendorRepo repository.VendorRepository) *VendorService {
-	return &VendorService{vendorRepo: vendorRepo}
+func NewVendorService(vendorRepo repository.VendorRepository, userRepo repository.UserRepository, emailSvc *EmailService) *VendorService {
+	return &VendorService{
+		vendorRepo: vendorRepo,
+		userRepo:   userRepo,
+		emailSvc:   emailSvc,
+	}
 }
 
 // CreateVendor creates a new vendor with categories, addresses, bank details
-func (s *VendorService) CreateVendor(ctx context.Context, vendor *models.Vendor, categoryIDs []int64, addresses []models.VendorAddress, bankDetails []models.VendorBankDetail) (int64, error) {
-	// Insert vendor
+func (s *VendorService) CreateVendor(ctx context.Context, vendor *models.Vendor, categoryIDs []int64, addresses []models.VendorAddress, bankDetails []models.VendorBankDetail) (int64, int64, error) {
+	userID, err := s.userRepo.CreateVendorUser(ctx, nil, vendor.Email, vendor.CompanyName)
+	if err != nil {
+		return 0, 0, err
+	}
+	vendor.UserID = &userID
+
 	vendorID, err := s.vendorRepo.Create(ctx, vendor)
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 	// Add categories
 	for _, catID := range categoryIDs {
 		if err := s.vendorRepo.AddCategory(ctx, vendorID, catID); err != nil {
-			return 0, err
+			return 0, 0, err
 		}
 	}
 	// Add addresses
 	for _, addr := range addresses {
 		addr.VendorID = vendorID
 		if err := s.vendorRepo.AddAddress(ctx, &addr); err != nil {
-			return 0, err
+			return 0, 0, err
 		}
 	}
 	// Add bank details
 	for _, bank := range bankDetails {
 		bank.VendorID = vendorID
 		if err := s.vendorRepo.AddBankDetail(ctx, &bank); err != nil {
-			return 0, err
+			return 0, 0, err
 		}
 	}
-	return vendorID, nil
+	if s.emailSvc != nil {
+		subject := "Welcome to VendorBridge"
+		body := "Your vendor account has been created. Please visit the VendorBridge signup page and set your password using this email address."
+		if err := s.emailSvc.Send([]string{vendor.Email}, subject, body); err != nil {
+			log.Printf("failed to send vendor welcome email to %s: %v", vendor.Email, err)
+		}
+	}
+	return vendorID, userID, nil
 }
 
 type VendorSearchResult struct {

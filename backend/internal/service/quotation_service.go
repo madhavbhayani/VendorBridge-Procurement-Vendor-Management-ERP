@@ -2,10 +2,13 @@ package service
 
 import (
 	"context"
+	"errors"
 
 	"github.com/madhavbhayani/VendorBridge-Procurement-Vendor-Management-ERP/internal/models"
 	"github.com/madhavbhayani/VendorBridge-Procurement-Vendor-Management-ERP/internal/repository"
 )
+
+var ErrQuotationAlreadySubmitted = errors.New("quotation already submitted for this RFQ")
 
 type QuotationService struct {
 	quotationRepo *repository.QuotationRepository
@@ -22,7 +25,60 @@ func NewQuotationService(quotationRepo *repository.QuotationRepository, rfqRepo 
 }
 
 func (s *QuotationService) CreateQuotation(ctx context.Context, q *models.Quotation, items []models.QuotationItem, attachments []models.QuotationAttachment) error {
+	exists, err := s.quotationRepo.QuotationExists(ctx, q.RFQID, q.VendorID)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return ErrQuotationAlreadySubmitted
+	}
 	return s.quotationRepo.CreateQuotation(ctx, q, items, attachments)
+}
+
+func (s *QuotationService) GetVendorQuotations(ctx context.Context, userID int64) ([]models.Quotation, error) {
+	vendor, err := s.vendorRepo.GetByUserID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if vendor == nil {
+		return []models.Quotation{}, nil
+	}
+	return s.quotationRepo.GetVendorQuotations(ctx, vendor.ID)
+}
+
+func (s *QuotationService) GetAllQuotations(ctx context.Context) ([]models.Quotation, error) {
+	return s.quotationRepo.GetAllQuotations(ctx)
+}
+
+func (s *QuotationService) GetQuotationByID(ctx context.Context, id int64) (*models.Quotation, error) {
+	return s.quotationRepo.GetQuotationByID(ctx, id)
+}
+
+func (s *QuotationService) RequestApproval(ctx context.Context, quotationID, requestedBy int64, remarks *string) error {
+	return s.quotationRepo.RequestApproval(ctx, quotationID, requestedBy, remarks)
+}
+
+func (s *QuotationService) RejectQuotation(ctx context.Context, quotationID int64, remarks *string) error {
+	return s.quotationRepo.RejectQuotation(ctx, quotationID, remarks)
+}
+
+func (s *QuotationService) GetApprovals(ctx context.Context, userID int64, role string) ([]models.ApprovalRequest, error) {
+	return s.quotationRepo.GetApprovals(ctx, userID, role)
+}
+
+func (s *QuotationService) DecideApproval(ctx context.Context, approvalID int64, status string, remarks *string) error {
+	if status != "approved" && status != "rejected" {
+		return errors.New("invalid approval status")
+	}
+	return s.quotationRepo.DecideApproval(ctx, approvalID, status, remarks)
+}
+
+func (s *QuotationService) GetPurchaseOrders(ctx context.Context) ([]models.PurchaseOrder, error) {
+	return s.quotationRepo.GetPurchaseOrders(ctx)
+}
+
+func (s *QuotationService) GetPurchaseOrderByID(ctx context.Context, id int64) (*models.PurchaseOrder, error) {
+	return s.quotationRepo.GetPurchaseOrderByID(ctx, id)
 }
 
 func (s *QuotationService) GetTaxRates(ctx context.Context) ([]models.TaxRate, error) {

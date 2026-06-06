@@ -2,6 +2,7 @@ package service
 
 import (
     "crypto/tls"
+    "errors"
     "fmt"
     "net/smtp"
 )
@@ -31,6 +32,12 @@ func NewEmailService(host string, port int, username, password, from string) *Em
 
 // Send sends an email with the given subject and body to the recipients.
 func (es *EmailService) Send(to []string, subject, body string) error {
+    if es.smtpHost == "" || es.smtpPort == 0 || es.username == "" || es.password == "" || es.fromAddr == "" {
+        return errors.New("email service is not configured")
+    }
+    if len(to) == 0 {
+        return errors.New("no email recipients provided")
+    }
     auth := smtp.PlainAuth("", es.username, es.password, es.smtpHost)
     msg := []byte(fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\n\r\n%s", es.fromAddr, to[0], subject, body))
     addr := fmt.Sprintf("%s:%d", es.smtpHost, es.smtpPort)

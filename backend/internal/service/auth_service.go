@@ -1,44 +1,50 @@
 package service
 
 import (
-    "context"
-    "errors"
-    "time"
+	"context"
+	"errors"
+	"time"
 
-    "github.com/google/uuid"
-    "github.com/madhavbhayani/VendorBridge-Procurement-Vendor-Management-ERP/internal/models"
-    "github.com/madhavbhayani/VendorBridge-Procurement-Vendor-Management-ERP/internal/repository"
-    "github.com/madhavbhayani/VendorBridge-Procurement-Vendor-Management-ERP/internal/utils"
+	"github.com/google/uuid"
+	"github.com/madhavbhayani/VendorBridge-Procurement-Vendor-Management-ERP/internal/models"
+	"github.com/madhavbhayani/VendorBridge-Procurement-Vendor-Management-ERP/internal/repository"
+	"github.com/madhavbhayani/VendorBridge-Procurement-Vendor-Management-ERP/internal/utils"
 )
 
 var (
-    ErrInvalidCredentials    = errors.New("invalid email or password")
-    ErrUserInactive          = errors.New("user account is not active")
-    ErrInvalidCode           = errors.New("invalid or expired login code")
-    ErrCodeAlreadyUsed       = errors.New("login code already used")
-    ErrInvalidRefreshToken   = errors.New("invalid or expired refresh token")
-    ErrTokenRevoked          = errors.New("refresh token has been revoked")
+	ErrInvalidCredentials  = errors.New("invalid email or password")
+	ErrUserInactive        = errors.New("user account is not active")
+	ErrInvalidCode         = errors.New("invalid or expired login code")
+	ErrCodeAlreadyUsed     = errors.New("login code already used")
+	ErrInvalidRefreshToken = errors.New("invalid or expired refresh token")
+	ErrTokenRevoked        = errors.New("refresh token has been revoked")
+	ErrVendorNotFound      = errors.New("vendor not found")
+	ErrVendorUserMissing   = errors.New("vendor user account is not mapped")
+	ErrVendorAlreadyExists = errors.New("Vendor Already Exists")
 )
 
 type AuthService struct {
-    userRepo    repository.UserRepository
-    codeRepo    repository.LoginCodeRepository
-    sessionRepo repository.SessionRepository
-    tokenSvc    *TokenService
+	userRepo    repository.UserRepository
+	vendorRepo  repository.VendorRepository
+	codeRepo    repository.LoginCodeRepository
+	sessionRepo repository.SessionRepository
+	tokenSvc    *TokenService
 }
 
 func NewAuthService(
-    userRepo repository.UserRepository,
-    codeRepo repository.LoginCodeRepository,
-    sessionRepo repository.SessionRepository,
-    tokenSvc *TokenService,
+	userRepo repository.UserRepository,
+	vendorRepo repository.VendorRepository,
+	codeRepo repository.LoginCodeRepository,
+	sessionRepo repository.SessionRepository,
+	tokenSvc *TokenService,
 ) *AuthService {
-    return &AuthService{
-        userRepo:    userRepo,
-        codeRepo:    codeRepo,
-        sessionRepo: sessionRepo,
-        tokenSvc:    tokenSvc,
-    }
+	return &AuthService{
+		userRepo:    userRepo,
+		vendorRepo:  vendorRepo,
+		codeRepo:    codeRepo,
+		sessionRepo: sessionRepo,
+		tokenSvc:    tokenSvc,
+	}
 }
 
 // Login validates credentials and returns a one-time login code.
@@ -148,4 +154,31 @@ func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (st
 // CreateVendorUser creates a vendor user with pending password.
 func (s *AuthService) CreateVendorUser(ctx context.Context, email, companyName string) (int64, error) {
     return s.userRepo.CreateVendorUser(ctx, nil, email, companyName)
+}
+
+func (s *AuthService) CompleteVendorSignUp(ctx context.Context, email, password string) error {
+	vendor, err := s.vendorRepo.GetByEmail(ctx, email)
+	if err != nil {
+		return err
+	}
+	if vendor == nil {
+		return ErrVendorNotFound
+	}
+	if vendor.UserID == nil {
+		return ErrVendorUserMissing
+	}
+
+	hashedPassword, err := utils.HashPassword(password)
+	if err != nil {
+		return err
+	}
+
+	updated, err := s.userRepo.SetPendingVendorPassword(ctx, *vendor.UserID, hashedPassword)
+	if err != nil {
+		return err
+	}
+	if !updated {
+		return ErrVendorAlreadyExists
+	}
+	return nil
 }

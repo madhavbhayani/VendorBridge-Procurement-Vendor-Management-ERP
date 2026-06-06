@@ -23,8 +23,9 @@ type loginRequest struct {
 }
 
 type vendorSignUpRequest struct {
-	Email       string `json:"email" binding:"required,email"`
-	CompanyName string `json:"company_name" binding:"required"`
+	Email           string `json:"email" binding:"required,email"`
+	Password        string `json:"password" binding:"required"`
+	ConfirmPassword string `json:"confirm_password" binding:"required"`
 }
 
 func (h *AuthHandler) Login(c *gin.Context) {
@@ -66,27 +67,31 @@ func (h *AuthHandler) AssignToken(c *gin.Context) {
 	})
 }
 
-// VendorSignUp creates a vendor user with pending password and sends welcome email
+// VendorSignUp claims an existing vendor user by setting its first password.
 func (h *AuthHandler) VendorSignUp(c *gin.Context) {
 	var req vendorSignUpRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	// Create user with role vendor and placeholder password
-	userID, err := h.authSvc.CreateVendorUser(c.Request.Context(), req.Email, req.CompanyName)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	if req.Password != req.ConfirmPassword {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "passwords do not match"})
 		return
 	}
-	// Send welcome email
-	subject := "Welcome to VendorBridge"
-	body := "Your vendor account has been created. Please use the sign-in page to set your password."
-	if err := h.emailSvc.Send([]string{req.Email}, subject, body); err != nil {
-		// Log but don't fail creation
-		// (Assuming a logger exists; otherwise ignore)
+
+	err := h.authSvc.CompleteVendorSignUp(c.Request.Context(), req.Email, req.Password)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if err == service.ErrVendorNotFound || err == service.ErrVendorUserMissing {
+			status = http.StatusNotFound
+		}
+		if err == service.ErrVendorAlreadyExists {
+			status = http.StatusConflict
+		}
+		c.JSON(status, gin.H{"error": err.Error()})
+		return
 	}
-	c.JSON(http.StatusCreated, gin.H{"message": "Vendor account created", "user_id": userID})
+	c.JSON(http.StatusOK, gin.H{"message": "Vendor account password set successfully"})
 }
 
 type refreshRequest struct {

@@ -29,20 +29,35 @@ func main() {
 	vendorRepo := repository.NewVendorRepository(database)
 	rfqRepo := repository.NewRFQRepository(database)
 
-	// Services
-	tokenSvc := service.NewTokenService(cfg.JWTSecret)
-	authSvc := service.NewAuthService(userRepo, codeRepo, sessionRepo, tokenSvc)
-	dashboardSvc := service.NewDashboardService(dashboardRepo)
-	vendorSvc := service.NewVendorService(vendorRepo)
-
 	// Initialize Email Service (using env variables)
 	smtpHost := os.Getenv("SMTP_HOST")
 	smtpPortStr := os.Getenv("SMTP_PORT")
 	smtpUser := os.Getenv("SMTP_USER")
 	smtpPass := os.Getenv("SMTP_PASS")
 	smtpFrom := os.Getenv("SMTP_FROM")
+	if smtpHost == "" {
+		smtpHost = "smtp.gmail.com"
+	}
+	if smtpPortStr == "" {
+		smtpPortStr = "465"
+	}
+	if smtpUser == "" {
+		smtpUser = os.Getenv("SEND_EMAIL")
+	}
+	if smtpPass == "" {
+		smtpPass = os.Getenv("GOOGLE_APP_PASSWORD")
+	}
+	if smtpFrom == "" {
+		smtpFrom = smtpUser
+	}
 	smtpPort, _ := strconv.Atoi(smtpPortStr)
 	emailSvc := service.NewEmailService(smtpHost, smtpPort, smtpUser, smtpPass, smtpFrom)
+
+	// Services
+	tokenSvc := service.NewTokenService(cfg.JWTSecret)
+	authSvc := service.NewAuthService(userRepo, vendorRepo, codeRepo, sessionRepo, tokenSvc)
+	dashboardSvc := service.NewDashboardService(dashboardRepo)
+	vendorSvc := service.NewVendorService(vendorRepo, userRepo, emailSvc)
 	rfqSvc := service.NewRFQService(rfqRepo)
 	quotationRepo := repository.NewQuotationRepository(database)
 	quotationSvc := service.NewQuotationService(quotationRepo, rfqRepo, vendorRepo)
@@ -66,6 +81,7 @@ func main() {
 		authGroup.POST("/login", authHandler.Login)
 		authGroup.POST("/assign-token", authHandler.AssignToken)
 		authGroup.POST("/refresh-token", authHandler.RefreshToken)
+		authGroup.POST("/signup", authHandler.VendorSignUp)
 		authGroup.POST("/signin", authHandler.VendorSignUp)
 	}
 
@@ -106,11 +122,39 @@ func main() {
 
 		protected.GET("/tax-rates", quotationHandler.GetTaxRates)
 
+		reviewQuotationGroup := protected.Group("/quotation-review")
+		reviewQuotationGroup.Use(middleware.RequireRole("admin", "procurement_officer", "manager"))
+		{
+			reviewQuotationGroup.GET("", quotationHandler.GetAllQuotations)
+			reviewQuotationGroup.GET("/:id", quotationHandler.GetQuotation)
+			reviewQuotationGroup.POST("/:id/request-approval", quotationHandler.RequestApproval)
+			reviewQuotationGroup.POST("/:id/reject", quotationHandler.RejectQuotation)
+		}
+
+		approvalGroup := protected.Group("/approvals")
+		approvalGroup.Use(middleware.RequireRole("admin", "procurement_officer", "manager"))
+		{
+			approvalGroup.GET("", quotationHandler.GetApprovals)
+		}
+		approvalDecisionGroup := protected.Group("/approvals")
+		approvalDecisionGroup.Use(middleware.RequireRole("admin", "manager"))
+		{
+			approvalDecisionGroup.POST("/:id/decision", quotationHandler.DecideApproval)
+		}
+
+		poGroup := protected.Group("/purchase-orders")
+		poGroup.Use(middleware.RequireRole("admin", "procurement_officer", "manager", "vendor"))
+		{
+			poGroup.GET("", quotationHandler.GetPurchaseOrders)
+			poGroup.GET("/:id/pdf", quotationHandler.DownloadPurchaseOrderPDF)
+		}
+
 		// Vendor specifically
 		vendorMeGroup := protected.Group("/vendor")
 		vendorMeGroup.Use(middleware.RequireRole("vendor"))
 		{
 			vendorMeGroup.GET("/invitations", quotationHandler.GetVendorInvitations)
+			vendorMeGroup.GET("/quotations", quotationHandler.GetVendorQuotations)
 			vendorMeGroup.GET("/rfqs/:id", quotationHandler.GetVendorRFQ)
 		}
 

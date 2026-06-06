@@ -11,6 +11,7 @@ import (
 type UserRepository interface {
 	CreateVendorUser(ctx context.Context, tx *sql.Tx, email, fullName string) (int64, error)
 	SetPassword(ctx context.Context, userID int64, hashedPassword string) error
+	SetPendingVendorPassword(ctx context.Context, userID int64, hashedPassword string) (bool, error)
 
 	GetByEmail(ctx context.Context, email string) (*models.User, error)
 	GetByID(ctx context.Context, id int64) (*models.User, error)
@@ -70,7 +71,7 @@ func (r *userRepo) UpdateLastLogin(ctx context.Context, userID int64) error {
 func (r *userRepo) CreateVendorUser(ctx context.Context, tx *sql.Tx, email, fullName string) (int64, error) {
 	query := `
 		INSERT INTO users (email, password_hash, full_name, role, status)
-		VALUES ($1, 'PENDING_SETUP', $2, 'vendor', 'active')
+		VALUES ($1, 'NA', $2, 'vendor', 'active')
 		RETURNING id
 	`
 	var id int64
@@ -87,4 +88,23 @@ func (r *userRepo) SetPassword(ctx context.Context, userID int64, hashedPassword
 	query := "UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2"
 	_, err := r.db.ExecContext(ctx, query, hashedPassword, userID)
 	return err
+}
+
+func (r *userRepo) SetPendingVendorPassword(ctx context.Context, userID int64, hashedPassword string) (bool, error) {
+	query := `
+		UPDATE users
+		SET password_hash = $1, updated_at = NOW()
+		WHERE id = $2
+		  AND role = 'vendor'
+		  AND password_hash = 'NA'
+	`
+	result, err := r.db.ExecContext(ctx, query, hashedPassword, userID)
+	if err != nil {
+		return false, err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	return rows > 0, nil
 }

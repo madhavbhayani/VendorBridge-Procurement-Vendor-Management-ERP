@@ -45,7 +45,7 @@ func (h *VendorHandler) CreateVendor(c *gin.Context) {
         req.Status = "pending"
     }
 
-    userID := c.GetInt64("userID")
+    createdByID := c.GetInt64("userID")
     vendor := &models.Vendor{
         CompanyName:    req.CompanyName,
         TradeName:      req.TradeName,
@@ -57,14 +57,14 @@ func (h *VendorHandler) CreateVendor(c *gin.Context) {
         Website:        req.Website,
         Status:         req.Status,
         Notes:          req.Notes,
-        CreatedBy:      &userID,
+        CreatedBy:      &createdByID,
     }
-    vendorID, err := h.vendorSvc.CreateVendor(c.Request.Context(), vendor, req.CategoryIDs, req.Addresses, req.BankDetails)
+    vendorID, vendorUserID, err := h.vendorSvc.CreateVendor(c.Request.Context(), vendor, req.CategoryIDs, req.Addresses, req.BankDetails)
     if err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
         return
     }
-    c.JSON(http.StatusCreated, gin.H{"message": "Vendor created successfully", "vendor_id": vendorID})
+    c.JSON(http.StatusCreated, gin.H{"message": "Vendor created successfully", "vendor_id": vendorID, "user_id": vendorUserID})
 }
 
 // SearchVendors GET /api/vendors/search

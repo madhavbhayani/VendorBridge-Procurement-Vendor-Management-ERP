@@ -17,6 +17,7 @@ type VendorRepository interface {
 	Search(ctx context.Context, search string, categoryID *int64, status *string, limit, offset int) ([]models.Vendor, int, error)
 	List(ctx context.Context, limit, offset int) ([]models.Vendor, int, error)
 	GetByUserID(ctx context.Context, userID int64) (*models.Vendor, error)
+	GetByEmail(ctx context.Context, email string) (*models.Vendor, error)
 	GetByID(ctx context.Context, id int64) (*models.Vendor, error)
 	GetCategoriesByVendor(ctx context.Context, vendorID int64) ([]models.VendorCategory, error)
 	GetAddressesByVendor(ctx context.Context, vendorID int64) ([]models.VendorAddress, error)
@@ -122,7 +123,7 @@ func (r *vendorRepo) Search(ctx context.Context, search string, categoryID *int6
 
 	// Fetch vendors
 	query := fmt.Sprintf(`
-        SELECT v.id, v.company_name, v.trade_name, v.gst_number, v.pan_number, v.email,
+        SELECT v.id, v.user_id, v.company_name, v.trade_name, v.gst_number, v.pan_number, v.email,
                v.phone, v.alternate_phone, v.website, v.status, v.rating, v.notes,
                v.created_by, v.created_at, v.updated_at
         FROM vendors v
@@ -142,7 +143,7 @@ func (r *vendorRepo) Search(ctx context.Context, search string, categoryID *int6
 	for rows.Next() {
 		var v models.Vendor
 		err := rows.Scan(
-			&v.ID, &v.CompanyName, &v.TradeName, &v.GSTNumber, &v.PANNumber,
+			&v.ID, &v.UserID, &v.CompanyName, &v.TradeName, &v.GSTNumber, &v.PANNumber,
 			&v.Email, &v.Phone, &v.AlternatePhone, &v.Website, &v.Status,
 			&v.Rating, &v.Notes, &v.CreatedBy, &v.CreatedAt, &v.UpdatedAt,
 		)
@@ -160,13 +161,13 @@ func (r *vendorRepo) List(ctx context.Context, limit, offset int) ([]models.Vend
 
 func (r *vendorRepo) GetByID(ctx context.Context, id int64) (*models.Vendor, error) {
 	query := `
-        SELECT id, company_name, trade_name, gst_number, pan_number, email, phone,
+        SELECT id, user_id, company_name, trade_name, gst_number, pan_number, email, phone,
                alternate_phone, website, status, rating, notes, created_by, created_at, updated_at
         FROM vendors WHERE id = $1
     `
 	var v models.Vendor
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
-		&v.ID, &v.CompanyName, &v.TradeName, &v.GSTNumber, &v.PANNumber,
+		&v.ID, &v.UserID, &v.CompanyName, &v.TradeName, &v.GSTNumber, &v.PANNumber,
 		&v.Email, &v.Phone, &v.AlternatePhone, &v.Website, &v.Status,
 		&v.Rating, &v.Notes, &v.CreatedBy, &v.CreatedAt, &v.UpdatedAt,
 	)
@@ -325,6 +326,29 @@ func (r *vendorRepo) GetByUserID(ctx context.Context, userID int64) (*models.Ven
 	`
 	var v models.Vendor
 	err := r.db.QueryRowContext(ctx, query, userID).Scan(
+		&v.ID, &v.UserID, &v.CompanyName, &v.TradeName, &v.GSTNumber, &v.PANNumber,
+		&v.Email, &v.Phone, &v.AlternatePhone, &v.Website,
+		&v.Status, &v.Rating, &v.Notes, &v.CreatedBy,
+		&v.CreatedAt, &v.UpdatedAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r *vendorRepo) GetByEmail(ctx context.Context, email string) (*models.Vendor, error) {
+	query := `
+		SELECT id, user_id, company_name, trade_name, gst_number, pan_number, email, phone, alternate_phone, website,
+		       status, rating, notes, created_by, created_at, updated_at
+		FROM vendors
+		WHERE email = $1
+	`
+	var v models.Vendor
+	err := r.db.QueryRowContext(ctx, query, email).Scan(
 		&v.ID, &v.UserID, &v.CompanyName, &v.TradeName, &v.GSTNumber, &v.PANNumber,
 		&v.Email, &v.Phone, &v.AlternatePhone, &v.Website,
 		&v.Status, &v.Rating, &v.Notes, &v.CreatedBy,
