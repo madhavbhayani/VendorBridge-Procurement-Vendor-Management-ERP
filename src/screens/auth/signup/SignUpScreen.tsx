@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { ApiClient } from "@/api_service/client";
 import { FormEvent, useState } from "react";
 
 export default function SignUpScreen() {
   const [formData, setFormData] = useState({
-    companyName: "",
     email: "",
     password: "",
     confirmPassword: "",
@@ -34,12 +34,16 @@ export default function SignUpScreen() {
       return;
     }
 
-    // Simulate API call
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const payload = {
+        email: formData.email,
+        password: formData.password,
+        confirm_password: formData.confirmPassword,
+      };
+      await ApiClient.post('/api/auth/signup', payload);
       setSuccess(true);
-    } catch (err) {
-      setError("An error occurred during registration");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'An error occurred while setting up your vendor account');
     } finally {
       setIsLoading(false);
     }
@@ -63,7 +67,7 @@ export default function SignUpScreen() {
         {success && (
           <div className="mb-4 px-4 py-3 bg-green-50 border border-green-200 rounded-lg">
             <p className="text-sm text-green-800 font-medium">
-              Registration successful! Check your email to verify.
+              Password set successfully. You can now sign in.
             </p>
           </div>
         )}
@@ -77,26 +81,6 @@ export default function SignUpScreen() {
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Company Name Field */}
-          <div>
-            <label
-              htmlFor="companyName"
-              className="block text-sm font-medium text-gray-700 mb-2"
-            >
-              Company Name
-            </label>
-            <input
-              id="companyName"
-              type="text"
-              name="companyName"
-              value={formData.companyName}
-              onChange={handleChange}
-              placeholder="Your company name"
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-colors"
-            />
-          </div>
-
           {/* Email Field */}
           <div>
             <label
@@ -133,6 +117,7 @@ export default function SignUpScreen() {
               onChange={handleChange}
               placeholder="••••••••"
               required
+              minLength={8}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-colors"
             />
           </div>
@@ -153,6 +138,7 @@ export default function SignUpScreen() {
               onChange={handleChange}
               placeholder="••••••••"
               required
+              minLength={8}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-colors"
             />
           </div>

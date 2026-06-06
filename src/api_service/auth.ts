@@ -11,6 +11,19 @@ export interface TokenResponse {
 }
 
 export class AuthService {
+  static getCurrentRole(): string | null {
+    const token = Cookies.get('access_token');
+    if (!token) return null;
+    try {
+      const base64Url = token.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const payload = JSON.parse(window.atob(base64));
+      return typeof payload.role === 'string' ? payload.role : null;
+    } catch {
+      return null;
+    }
+  }
+
   static async login(email: string, password: string): Promise<void> {
     // 1. Get the one-time login code
     const loginResp = await ApiClient.post<LoginResponse>('/api/auth/login', { email, password });

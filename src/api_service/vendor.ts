@@ -34,6 +34,7 @@ export interface VendorBankDetail {
 
 export interface Vendor {
   id?: number;
+  user_id?: number;
   company_name: string;
   trade_name?: string;
   gst_number?: string;
@@ -98,8 +99,8 @@ export class VendorService {
     });
   }
 
-  static async createVendor(vendor: Vendor): Promise<{ message: string; vendor_id: number }> {
-    return ApiClient.post<{ message: string; vendor_id: number }>('/api/vendors', vendor);
+  static async createVendor(vendor: Vendor): Promise<{ message: string; vendor_id: number; user_id: number }> {
+    return ApiClient.post<{ message: string; vendor_id: number; user_id: number }>('/api/vendors', vendor);
   }
 
   static async updateVendor(id: number, vendor: Partial<Vendor>): Promise<{ message: string; vendor_id: number }> {

@@ -94,7 +94,7 @@ export default function DashboardScreen() {
   };
 
   return (
-    <div className="p-6 md:p-8 max-w-7xl mx-auto">
+    <div className="p-6 md:p-8 w-full">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Dashboard overview</h1>
         <p className="mt-2 text-gray-500">Monitor your procurement operations and recent activities.</p>

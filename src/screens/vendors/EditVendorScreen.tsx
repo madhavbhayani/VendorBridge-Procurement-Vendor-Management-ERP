@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { 
   VendorService, 
   Vendor, 
@@ -22,8 +22,12 @@ import {
   AlertCircle
 } from "lucide-react";
 
-export default function AddVendorScreen() {
+export default function EditVendorScreen() {
   const router = useRouter();
+  const params = useParams();
+  const vendorId = parseInt(params.id as string);
+  
+  const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -70,14 +74,45 @@ export default function AddVendorScreen() {
   }]);
 
   useEffect(() => {
-    VendorService.getCategories().then(setCategories).catch(console.error);
     LocationService.getCountries().then((data) => {
       setDbCountries(data);
-      if (data.length > 0 && addresses[0].country_id === 0) {
-        updateAddress(0, 'country_id', data[0].id);
-      }
     }).catch(console.error);
-  }, []);
+
+    VendorService.getCategories().then(setCategories).catch(console.error);
+    
+    // Fetch Vendor Data
+    if (vendorId) {
+      VendorService.getVendor(vendorId)
+        .then(data => {
+          setBasicInfo({
+            company_name: data.company_name,
+            trade_name: data.trade_name || "",
+            gst_number: data.gst_number || "",
+            pan_number: data.pan_number || "",
+            email: data.email,
+            phone: data.phone,
+            alternate_phone: data.alternate_phone || "",
+            website: data.website || "",
+            status: data.status,
+            notes: data.notes || ""
+          });
+          if (data.categories) {
+            setSelectedCategories(data.categories.map(c => c.id));
+          }
+          if (data.addresses && data.addresses.length > 0) {
+            setAddresses(data.addresses);
+          }
+          if (data.bank_details && data.bank_details.length > 0) {
+            setBanks(data.bank_details);
+          }
+          setIsLoading(false);
+        })
+        .catch(err => {
+          setError(err.message || "Failed to load vendor");
+          setIsLoading(false);
+        });
+    }
+  }, [vendorId]);
 
   // Fetch states whenever a country is selected
   useEffect(() => {
@@ -173,16 +208,25 @@ export default function AddVendorScreen() {
         bank_details: banks
       };
 
-      await VendorService.createVendor(payload);
-      router.push('/vendors');
+      await VendorService.updateVendor(vendorId, payload);
+      router.push(`/vendors/${vendorId}`);
       router.refresh();
     } catch (err: any) {
-      setError(err.message || "Failed to create vendor");
+      setError(err.message || "Failed to update vendor");
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-green-600 mb-4" />
+        <p className="text-gray-500 font-medium">Loading vendor details...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 md:p-8 w-full pb-24">
@@ -194,8 +238,8 @@ export default function AddVendorScreen() {
           <ArrowLeft className="h-6 w-6 text-gray-600" />
         </button>
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Add New Vendor</h1>
-          <p className="mt-1 text-gray-500">Register a new supplier in the system.</p>
+          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Edit Vendor</h1>
+          <p className="mt-1 text-gray-500">Update information for {basicInfo.company_name}.</p>
         </div>
       </div>
 
@@ -416,7 +460,7 @@ export default function AddVendorScreen() {
           </button>
           <button type="submit" disabled={isSubmitting} className="inline-flex items-center px-6 py-2.5 text-sm font-semibold text-white bg-green-600 border border-transparent rounded-xl shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-70 disabled:cursor-not-allowed transition-colors">
             {isSubmitting ? <Loader2 className="animate-spin h-5 w-5 mr-2" /> : <Save className="h-5 w-5 mr-2" />}
-            {isSubmitting ? "Saving..." : "Save Vendor"}
+            {isSubmitting ? "Updating..." : "Update Vendor"}
           </button>
         </div>
       </form>

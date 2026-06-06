@@ -21,55 +21,78 @@ import {
   UserCircle
 } from "lucide-react";
 
-const MENU_ITEMS = [
+const ADMIN_PROCUREMENT_MENU = [
   { name: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
   { name: "Vendors", path: "/vendors", icon: Users },
-  { name: "RFQ", path: "/rfq", icon: FileText },
+  { name: "RFQs", path: "/rfqs", icon: FileText },
   { name: "Quotation", path: "/quotation", icon: ReceiptText },
-  { name: "Approvals", path: "/approvals", icon: CheckSquare },
+  { name: "Approval", path: "/approvals", icon: CheckSquare },
   { name: "Purchase Orders", path: "/purchase-orders", icon: ShoppingCart },
   { name: "Invoices", path: "/invoices", icon: FileSpreadsheet },
   { name: "Reports", path: "/reports", icon: BarChart2 },
   { name: "Activity", path: "/activity", icon: Activity },
 ];
 
+const MANAGEMENT_MENU = [
+  { name: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
+  { name: "Vendors", path: "/vendors", icon: Users },
+  { name: "Quotation", path: "/quotation", icon: ReceiptText },
+  { name: "Approvals", path: "/approvals", icon: CheckSquare },
+  { name: "Purchase Orders", path: "/purchase-orders", icon: ShoppingCart },
+  { name: "Invoices", path: "/invoices", icon: FileSpreadsheet },
+];
+
+const VENDOR_MENU = [
+  { name: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
+  { name: "Invitations", path: "/invitations", icon: FileText },
+  { name: "Quotations", path: "/quotation", icon: ReceiptText },
+  { name: "PO & Invoices", path: "/vendor-orders", icon: ShoppingCart },
+];
+
 export default function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [hoveredTooltip, setHoveredTooltip] = useState<{ text: string; top: number } | null>(null);
-  const [userRole, setUserRole] = useState("Admin");
-  const [userEmail, setUserEmail] = useState("admin@vendorbridge.com");
-  const [portalName, setPortalName] = useState("Admin Portal");
+  const [identity, setIdentity] = useState({
+    userRole: "Admin",
+    userEmail: "admin@vendorbridge.com",
+    portalName: "Admin Portal",
+  });
   
   const pathname = usePathname();
 
   useEffect(() => {
     const token = Cookies.get("access_token");
+    const nextIdentity = {
+      userRole: "Admin",
+      userEmail: "admin@vendorbridge.com",
+      portalName: "Admin Portal",
+    };
     if (token) {
       try {
         const base64Url = token.split(".")[1];
         const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
         const payload = JSON.parse(window.atob(base64));
         
-        if (payload.email) setUserEmail(payload.email);
+        if (payload.email) nextIdentity.userEmail = payload.email;
         
         if (payload.role) {
           switch (payload.role.toLowerCase()) {
             case "procurement_officer":
-              setUserRole("Procurement Officer");
-              setPortalName("Procurement Portal");
+              nextIdentity.userRole = "Procurement Officer";
+              nextIdentity.portalName = "Procurement Portal";
               break;
             case "manager":
-              setUserRole("Finance Manager");
-              setPortalName("Finance Portal");
+              nextIdentity.userRole = "Manager";
+              nextIdentity.portalName = "Manager Portal";
               break;
             case "vendor":
-              setUserRole("Vendor");
-              setPortalName("Vendor Portal");
+              nextIdentity.userRole = "Vendor";
+              nextIdentity.portalName = "Vendor Portal";
               break;
             case "admin":
             default:
-              setUserRole("Admin");
-              setPortalName("Admin Portal");
+              nextIdentity.userRole = "Admin";
+              nextIdentity.portalName = "Admin Portal";
               break;
           }
         }
@@ -77,7 +100,10 @@ export default function Sidebar() {
         console.error("Failed to decode token", e);
       }
     }
+    window.setTimeout(() => setIdentity(nextIdentity), 0);
   }, []);
+
+  const { userRole, userEmail, portalName } = identity;
 
   const handleMouseEnter = (e: React.MouseEvent, text: string) => {
     if (isCollapsed) {
@@ -129,7 +155,7 @@ export default function Sidebar() {
         {/* Navigation */}
         <div className="flex-1 overflow-y-auto py-4 scrollbar-hide">
           <nav className="flex flex-col gap-1 px-3">
-            {MENU_ITEMS.map((item) => {
+            {(userRole === "Vendor" ? VENDOR_MENU : (userRole === "Admin" || userRole === "Procurement Officer") ? ADMIN_PROCUREMENT_MENU : MANAGEMENT_MENU).map((item) => {
               const isActive = pathname === item.path || pathname.startsWith(item.path + "/");
               return (
                 <Link

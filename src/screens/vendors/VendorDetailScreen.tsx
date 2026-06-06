@@ -82,7 +82,7 @@ export default function VendorDetailScreen() {
 
   if (error || !vendor) {
     return (
-      <div className="p-6 md:p-8 max-w-5xl mx-auto">
+      <div className="p-6 md:p-8 w-full">
         <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center shadow-sm">
           <AlertCircle className="mx-auto h-8 w-8 text-red-500 mb-3" />
           <h2 className="text-lg font-semibold text-red-800">Error Loading Vendor</h2>
@@ -96,7 +96,7 @@ export default function VendorDetailScreen() {
   }
 
   return (
-    <div className="p-6 md:p-8 max-w-5xl mx-auto pb-24">
+    <div className="p-6 md:p-8 w-full pb-24">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 gap-4">
         <div className="flex items-center gap-4">
@@ -123,7 +123,7 @@ export default function VendorDetailScreen() {
             Delete
           </button>
           <button 
-            onClick={() => alert('Edit feature is coming soon!')}
+            onClick={() => router.push(`/vendors/${vendorId}/edit`)}
             className="inline-flex items-center justify-center rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm border border-gray-300 hover:bg-gray-50 transition-colors"
           >
             <Edit className="-ml-1 mr-2 h-4 w-4" />
