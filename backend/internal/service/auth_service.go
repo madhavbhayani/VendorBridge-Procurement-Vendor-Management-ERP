@@ -96,7 +96,7 @@ func (s *AuthService) AssignToken(ctx context.Context, code string) (accessToken
     }
 
     // Generate tokens
-    accessToken, err = s.tokenSvc.GenerateAccessToken(user.ID, user.Email)
+    accessToken, err = s.tokenSvc.GenerateAccessToken(user.ID, user.Email, user.Role)
     if err != nil {
         return "", "", err
     }
@@ -137,7 +137,7 @@ func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (st
     }
 
     // Issue new access token
-    newAccessToken, err := s.tokenSvc.GenerateAccessToken(user.ID, user.Email)
+    newAccessToken, err := s.tokenSvc.GenerateAccessToken(user.ID, user.Email, user.Role)
     if err != nil {
         return "", err
     }

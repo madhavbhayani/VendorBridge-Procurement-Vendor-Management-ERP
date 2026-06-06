@@ -14,8 +14,8 @@ func NewTokenService(secret []byte) *TokenService {
 	}
 }
 
-func (s *TokenService) GenerateAccessToken(userID int64, email string) (string, error) {
-	return s.jwt.GenerateAccessToken(userID, email)
+func (s *TokenService) GenerateAccessToken(userID int64, email string, role string) (string, error) {
+	return s.jwt.GenerateAccessToken(userID, email, role)
 }
 
 func (s *TokenService) ValidateAccessToken(token string) (*utils.JWTClaims, error) {

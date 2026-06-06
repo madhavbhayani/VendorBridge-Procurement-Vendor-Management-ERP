@@ -10,6 +10,7 @@ import (
 type JWTClaims struct {
     UserID int64  `json:"sub"`
     Email  string `json:"email"`
+    Role   string `json:"role"`
     jwt.RegisteredClaims
 }
 
@@ -21,10 +22,11 @@ func NewJWTService(secret []byte) *JWTService {
     return &JWTService{secret: secret}
 }
 
-func (j *JWTService) GenerateAccessToken(userID int64, email string) (string, error) {
+func (j *JWTService) GenerateAccessToken(userID int64, email string, role string) (string, error) {
     claims := JWTClaims{
         UserID: userID,
         Email:  email,
+        Role:   role,
         RegisteredClaims: jwt.RegisteredClaims{
             ExpiresAt: jwt.NewNumericDate(time.Now().Add(20 * time.Minute)),
             IssuedAt:  jwt.NewNumericDate(time.Now()),

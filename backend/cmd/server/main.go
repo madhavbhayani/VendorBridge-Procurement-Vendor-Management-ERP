@@ -24,15 +24,18 @@ func main() {
 	codeRepo := repository.NewLoginCodeRepository(database)
 	sessionRepo := repository.NewSessionRepository(database)
 	dashboardRepo := repository.NewDashboardRepository(database)
+	vendorRepo := repository.NewVendorRepository(database)
 
 	// Services
 	tokenSvc := service.NewTokenService(cfg.JWTSecret)
 	authSvc := service.NewAuthService(userRepo, codeRepo, sessionRepo, tokenSvc)
 	dashboardSvc := service.NewDashboardService(dashboardRepo)
+	vendorSvc := service.NewVendorService(vendorRepo)
 
 	// Handlers
 	authHandler := handlers.NewAuthHandler(authSvc)
 	dashboardHandler := handlers.NewDashboardHandler(dashboardSvc)
+	vendorHandler := handlers.NewVendorHandler(vendorSvc)
 
 	// Router
 	r := gin.Default()
@@ -56,6 +59,21 @@ func main() {
 			})
 		})
 		protected.GET("/dashboard", dashboardHandler.GetDashboard)
+
+		// Vendor management (all roles procurement_officer or admin)
+		vendorGroup := protected.Group("/vendors")
+		vendorGroup.Use(middleware.RequireRole("admin", "procurement_officer"))
+		{
+			vendorGroup.POST("", vendorHandler.CreateVendor)
+			vendorGroup.GET("/search", vendorHandler.SearchVendors)
+			vendorGroup.GET("", vendorHandler.ListVendors)
+			vendorGroup.GET("/:id", vendorHandler.GetVendor)
+			vendorGroup.PUT("/:id", vendorHandler.UpdateVendor)
+			vendorGroup.DELETE("/:id", vendorHandler.DeleteVendor)
+		}
+
+		// Public categories (no extra role, but still authenticated)
+		protected.GET("/vendor-categories", vendorHandler.GetVendorCategories)
 	}
 
 	log.Printf("Server starting on :%s", cfg.ServerPort)
